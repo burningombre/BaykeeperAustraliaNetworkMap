@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+	
+	<title>Baykeeper Australia Network Map Leaflet</title>
+
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	
+	<link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css" integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ==" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js" integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew==" crossorigin=""></script>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.1.0/papaparse.min.js"></script>
+
+	
+</head>
+<body>
+
+<style>
+
+  body{
+    padding: 0;
+    margin: 0;
+  }
+  html, body, #map {
+    height: 100%;
+    width: 100%;
+  }
+
+  .legend {padding: 12px 8px; text-align: left; line-height: 18px; background: white; } 
+  .legend i { width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 1; }
+</style>
+
+<div id="map"></div>
+
+<script>
+// Initializing the map
+
+	var mymap = L.map('map', {
+  	center: [-37.994086, 144.911048], 
+    zoom: 9
+    });
+  
+	var CartoDB_Voyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+		attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+		subdomains: 'abcd',
+	}).addTo(mymap);
+	
+
+</script>
+
+<script>
+// Reading the CSV and adding its data to the map 
+
+$.ajax({
+    url: "https://raw.githubusercontent.com/burningombre/BaykeeperAustraliaNetworkMap/master/StakeholderDataFinal.csv",
+    success: function(csv) {
+        const output = Papa.parse(csv, {
+          header: true, // Convert rows to Objects using headers as properties
+          dynamicTyping: true,
+        });
+        
+        if (output.data) {	// if the output from reading the CSV is valid, continue
+        
+        	var stakeholders = output.data
+          
+          // The different groups to select for displaying on the map
+          var climateChange = L.layerGroup().addTo(mymap);
+          var chemicalRunOffAndPolution = L.layerGroup().addTo(mymap);
+          var communityEducation = L.layerGroup().addTo(mymap);
+          var humanActivity = L.layerGroup().addTo(mymap);
+          var managementPlansAndProtections = L.layerGroup().addTo(mymap);
+          var marinePests = L.layerGroup().addTo(mymap);
+          var plasticsAndLitters = L.layerGroup().addTo(mymap);
+          var other = L.layerGroup().addTo(mymap);
+                 
+          var overlays = {
+						"Climate change": climateChange,
+            "Chemical run off and polution": chemicalRunOffAndPolution,
+            "Community education": communityEducation,
+            "Human activity": humanActivity,
+            "Management plans and protections": managementPlansAndProtections,
+            "Marine pests": marinePests,
+            "Plastics and litters": plasticsAndLitters,
+            "Other": other
+					};
+          
+          L.control.layers(null, overlays, {collapsed: false}).addTo(mymap);
+          
+          
+          var legend = L.control({position: 'bottomright'});
+    				legend.onAdd = function (map) {
+
+    				var div = L.DomUtil.create('div', 'info legend');
+    				labels = ['<strong>Stakeholder Type</strong>'],
+    				categories = ['Business and education',
+            							'Local community',
+                          'Local government',
+                          'Not-for-profit, statutory authority',
+                          'Regional group',
+                    			'Research institute/university',
+                    			'State government',
+                    			'Volunteer community group'];
+
+             for (var i = 0; i < categories.length; i++) {
+               div.innerHTML += 
+                 labels.push(
+                 "<i class='circle' style='background:" + getColor(categories[i]) + "'></i>" +
+                 (categories[i] ? categories[i] : '+'));
+             }
+             div.innerHTML = labels.join('<br>');
+             return div;
+           };
+          legend.addTo(mymap);
+
+          
+          
+          
+          
+          // function for adding a marker to the map to represent a stakeholder listed in the spreadsheet 
+          // input: item = a stakeholder object read from parsing the spreadsheet
+          function stakeholderToCircleMarker(item){
+            
+          	if((item['Stakeholder name'] !== null) && 
+            	(latt !== item['Lattitude']) &&
+              (long !== item['Lattitude'])) {		// if no name or lat/long is listed, don't use
+          		
+              var name = item['Stakeholder name']
+              var latt = item['Lattitude']
+              var long = item['Longitude']
+              var logo = "<img src=" + item['Logo link'] + " alt='No logo available' width='200px' style='vertical-align:top'>"
+              var website = "<a href='" + item['Website link'] + "'>" + item['Website link'] + "</a>"
+              var type = item['Stakeholder type']
+              var issues = item['Broad stakeholder issues category']
+              
+              var issueCategories = issues.split(", ");		// breaking up the issue categories
+              
+              
+              var marker = new L.circleMarker([latt, long], 
+              {
+          			color: getColor(type),
+           			fillOpacity: .8,
+          			stroke: false
+							})
+          		.bindTooltip(name, 
+              {
+          			opacity: 1
+          		})
+          		.bindPopup(logo + "<br>" + 
+              	"<h2>" + name + "</h2>"  + 
+                "Website: " + website + "<br><br>" +
+                "Stakeholder type: " + type + "<br><br>" +
+                "Stakeholder issues: <br>" + issues);
+              
+              if(issueCategories.includes("Climate Change")){
+              	climateChange.addLayer(marker);
+              }
+              if(issueCategories.includes("Chemical Run Off and Pollution")){
+              	chemicalRunOffAndPolution.addLayer(marker);
+              }
+              if(issueCategories.includes("Community Education")){
+              	communityEducation.addLayer(marker);
+              }
+              if(issueCategories.includes("Human Activity")){
+              	humanActivity.addLayer(marker);
+              }
+              if(issueCategories.includes("Management Plans and Protections")){
+              	managementPlansAndProtections.addLayer(marker);
+              }
+              if(issueCategories.includes("Marine Pests/Biodiversity")){
+              	marinePests.addLayer(marker);
+              }
+              if(issueCategories.includes("Plastics and Litters")){
+              	plasticsAndLitters.addLayer(marker);
+              }
+              if(issueCategories.includes("Other")){
+              	other.addLayer(marker);
+              }
+                            
+            
+            }
+            
+            
+          }
+          
+          // function for mapping types to colors
+          function getColor(d) {
+        		return d === 'Business and education'  ? "#ffff00"  : // yellow
+            				d === 'Local community'  ? "#de2d26" : // red
+              			d === 'Local government' ? "#073be6" : // blue
+               			d === 'Not-for-profit, statutory authority' ? "#4daf4a" : // green
+                    d === 'Regional group' ? "#ff7f00" :	// orange
+                    d === 'Research institute/university' ? "#984ea3" : // purple
+                    d === 'State government' ? "#13f2e0" :	// aqua
+                    d === 'Volunteer community group' ? "#000000" : // black
+                            "#999999"; // grey
+    			}
+          
+          
+          stakeholders.forEach(stakeholderToCircleMarker);	// generate circle markers from the stakeholders
+          
+         
+          
+          
+        } else {	// if the output from reading the CSV is invalid, log the error
+          console.log(output.errors);
+        }
+    },
+    error: function(jqXHR, textStatus, errorThrow){
+        console.log(textStatus);
+    }
+});
+
+</script>
+
+</body>
+</html>
